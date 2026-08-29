@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caja negra — Registrador clásico</title>
+<style>
+  :root{
+    --bg-0:#0b0d10;
+    --bg-1:#14171b;
+    --panel:#1b1f24;
+    --panel-line:#2a2f36;
+    --orange:#ff7a1a;
+    --orange-dim:#5c3717;
+    --amber:#ffb454;
+    --teal:#2dd4bf;
+    --violet:#b18cff;
+    --ink-0:#f2ede4;
+    --ink-1:#a7adb4;
+    --ink-2:#6b7178;
+    --mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --disp: 'Space Grotesk', var(--mono);
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    padding:0;
+    background:
+      radial-gradient(1100px 550px at 15% -10%, #1b2027 0%, transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, #1a1512 0%, transparent 50%),
+      var(--bg-0);
+    color:var(--ink-0);
+    font-family:var(--mono);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .light{transition:background .12s ease, box-shadow .12s ease;}
+    .btn{transition:transform .08s ease, box-shadow .15s ease, background .15s ease;}
+    .bar-fill{transition:height .5s cubic-bezier(.2,.8,.2,1), background .3s ease;}
+    .tick{animation:pop .35s cubic-bezier(.2,.9,.25,1);}
+    .verdict{transition:color .2s ease;}
+  }
+  @keyframes pop{
+    from{transform:scaleY(.2); opacity:0;}
+    to{transform:scaleY(1); opacity:1;}
+  }
+  @keyframes blink{
+    0%,100%{opacity:1;}
+    50%{opacity:.35;}
+  }
+
+  .wrap{
+    max-width:960px;
+    margin:0 auto;
+    padding:48px 24px 72px;
+  }
+
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--orange);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:7px;height:7px;border-radius:50%;
+    background:var(--orange);
+    box-shadow:0 0 10px var(--orange);
+  }
+
+  h1{
+    font-family:var(--disp);
+    font-weight:700;
+    font-size:clamp(28px,4.2vw,42px);
+    line-height:1.08;
+    margin:0 0 12px;
+    letter-spacing:-0.01em;
+  }
+  h1 span{color:var(--orange);}
+
+  .sub{
+    color:var(--ink-1);
+    font-size:14.5px;
+    line-height:1.65;
+    max-width:640px;
+    margin:0 0 40px;
+  }
+  .sub code{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    padding:1px 6px;
+    border-radius:4px;
+    color:var(--amber);
+    font-size:13px;
+  }
+
+  /* ---- panel principal: caja negra + readout ---- */
+  .console{
+    display:grid;
+    grid-template-columns:280px 1fr;
+    gap:1px;
+    background:var(--panel-line);
+    border:1px solid var(--panel-line);
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 30px 60px -30px rgba(0,0,0,.6);
+  }
+  @media (max-width:640px){
+    .console{grid-template-columns:1fr;}
+  }
+
+  .box-side, .readout-side{
+    background:var(--panel);
+    padding:26px;
+  }
+
+  .box-label{
+    font-size:10.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-2);
+    margin-bottom:18px;
+  }
+
+  .box-svg-wrap{
+    display:flex;
+    justify-content:center;
+    margin-bottom:20px;
+  }
+
+  .lights{
+    display:flex;
+    justify-content:center;
+    gap:28px;
+    margin-bottom:22px;
+  }
+  .light-unit{
+    text-align:center;
+  }
+  .light{
+    width:16px;height:16px;
+    border-radius:50%;
+    margin:0 auto 8px;
+    background:#3a2010;
+    border:1px solid #4a2c14;
+  }
+  .light.on{
+    background:var(--orange);
+    box-shadow:0 0 16px 3px rgba(255,122,26,.55);
+  }
+  .light-unit small{
+    display:block;
+    color:var(--ink-2);
+    font-size:10px;
+    letter-spacing:.08em;
+  }
+
+  .btn{
+    width:100%;
+    background:var(--orange);
+    color:#1a0e05;
+    border:none;
+    font-family:var(--disp);
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:.02em;
+    padding:14px 16px;
+    border-radius:9px;
+    cursor:pointer;
+    box-shadow:0 8px 20px -8px rgba(255,122,26,.6);
+  }
+  .btn:hover{transform:translateY(-1px); box-shadow:0 10px 24px -8px rgba(255,122,26,.75);}
+  .btn:active{transform:translateY(0px) scale(.99);}
+  .btn:focus-visible{outline:2px solid var(--amber); outline-offset:3px;}
+
+  .hint{
+    color:var(--ink-2);
+    font-size:11px;
+    text-align:center;
+    margin-top:10px;
+    letter-spacing:.02em;
+  }
+
+  /* readout */
+  .readout-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin-bottom:20px;
+  }
+  .cell{
+    background:var(--bg-1);
+    border:1px solid var(--panel-line);
+    border-radius:9px;
+    padding:12px 14px;
+  }
+  .cell .k{
+    font-size:10px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-2);
+    margin-bottom:6px;
+  }
+  .cell .v{
+    font-family:var(--disp);
+    font-size:22px;
+    font-weight:700;
+    color:var(--amber);
+  }
+
+  .verdict-row{
+    background:var(--bg-1);
+    border:1px solid var(--panel-line);
+    border-radius:9px;
+    padding:16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:22px;
+  }
+  .verdict-row .k{
+    font-size:10px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-2);
+  }
+  .verdict{
+    font-family:var(--disp);
+    font-size:20px;
+    font-weight:700;
+  }
+  .verdict.constante{color:var(--teal);}
+  .verdict.balanceada{color:var(--violet);}
+
+  /* bar chart de la corrida actual */
+  .chart-title{
+    font-size:10.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-2);
+    margin:0 0 10px;
+  }
+  .bars{
+    display:flex;
+    align-items:flex-end;
+    gap:22px;
+    height:100px;
+    padding:0 6px 0;
+    border-bottom:1px solid var(--panel-line);
+    margin-bottom:8px;
+  }
+  .bar-col{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    width:64px;
+  }
+  .bar-track{
+    height:80px;
+    width:34px;
+    display:flex;
+    align-items:flex-end;
+  }
+  .bar-fill{
+    width:100%;
+    background:var(--ink-2);
+    border-radius:4px 4px 0 0;
+  }
+  .bar-fill.one{background:var(--orange);}
+  .bar-col label{
+    font-size:11px;
+    color:var(--ink-1);
+  }
+
+  /* historial */
+  .history{
+    margin-top:34px;
+  }
+  .history-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:12px;
+  }
+  .history-head .chart-title{margin:0;}
+  .history-head .n{
+    font-size:11px;
+    color:var(--ink-2);
+  }
+  .ticks{
+    display:flex;
+    align-items:flex-end;
+    gap:3px;
+    height:54px;
+    padding:8px 4px;
+    background:var(--bg-1);
+    border:1px solid var(--panel-line);
+    border-radius:9px;
+    overflow:hidden;
+  }
+  .tick{
+    flex:1 0 6px;
+    max-width:14px;
+    border-radius:2px 2px 0 0;
+    transform-origin:bottom;
+  }
+  .tick.constante{background:var(--teal);}
+  .tick.balanceada{background:var(--violet);}
+  .ticks .empty{
+    color:var(--ink-2);
+    font-size:11.5px;
+    margin:auto;
+  }
+
+  .legend{
+    display:flex;
+    gap:18px;
+    margin-top:10px;
+    font-size:11px;
+    color:var(--ink-1);
+  }
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  .dot.constante{background:var(--teal);}
+  .dot.balanceada{background:var(--violet);}
+
+  /* stats footer */
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:1px;
+    background:var(--panel-line);
+    border:1px solid var(--panel-line);
+    border-radius:14px;
+    overflow:hidden;
+    margin-top:28px;
+  }
+  .stat{
+    background:var(--panel);
+    padding:20px 22px;
+  }
+  .stat .k{
+    font-size:10.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-2);
+    margin-bottom:8px;
+  }
+  .stat .v{
+    font-family:var(--disp);
+    font-size:28px;
+    font-weight:700;
+    color:var(--ink-0);
+  }
+  .stat .v small{
+    font-size:13px;
+    color:var(--ink-2);
+    font-weight:500;
+  }
+
+  footer{
+    margin-top:36px;
+    color:var(--ink-2);
+    font-size:11.5px;
+    line-height:1.7;
+  }
+
+  @media (max-width:640px){
+    .stats{grid-template-columns:1fr 1fr;}
+    .stat:nth-child(3){grid-column:1 / -1;}
+    .stat .k{letter-spacing:.06em; font-size:10px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Simulación clásica</div>
+  <h1>Caja negra — <span>¿constante</span> o balanceada?</h1>
+  <p class="sub">
+    La caja esconde una función f(x) que solo acepta 0 o 1. El método clásico
+    la consulta dos veces —<code>f(0)</code> y <code>f(1)</code>— y compara
+    las respuestas para decidir su tipo. Pulsa el interruptor para que te
+    toque una caja nueva al azar; la gráfica y el historial se actualizan solos.
+  </p>
+
+  <div class="console">
+    <div class="box-side">
+      <div class="box-label">Panel de consulta</div>
+
+      <div class="box-svg-wrap">
+        <svg width="180" height="120" viewBox="0 0 180 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="14" width="172" height="92" rx="14" fill="#100b06" stroke="#ff7a1a" stroke-opacity="0.55" stroke-width="2"/>
+          <rect x="14" y="24" width="152" height="72" rx="8" fill="#1a1108" stroke="#3a2412" stroke-width="1"/>
+          <text x="90" y="66" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" fill="#ff9d4d" letter-spacing="2">f(x)</text>
+          <circle cx="4" cy="40" r="4" fill="#2a1c10"/>
+          <circle cx="4" cy="80" r="4" fill="#2a1c10"/>
+          <circle cx="176" cy="40" r="4" fill="#2a1c10"/>
+          <circle cx="176" cy="80" r="4" fill="#2a1c10"/>
+        </svg>
+      </div>
+
+      <div class="lights">
+        <div class="light-unit">
+          <div class="light" id="light0"></div>
+          <small>f(0)</small>
+        </div>
+        <div class="light-unit">
+          <div class="light" id="light1"></div>
+          <small>f(1)</small>
+        </div>
+      </div>
+
+      <button class="btn" id="runBtn">&#9654; Ejecutar nueva caja</button>
+      <div class="hint">2 consultas por corrida, siempre</div>
+    </div>
+
+    <div class="readout-side">
+      <div class="readout-grid">
+        <div class="cell">
+          <div class="k">f(0)</div>
+          <div class="v" id="valF0">—</div>
+        </div>
+        <div class="cell">
+          <div class="k">f(1)</div>
+          <div class="v" id="valF1">—</div>
+        </div>
+      </div>
+
+      <div class="verdict-row">
+        <div>
+          <div class="k">Veredicto</div>
+          <div class="verdict" id="verdict">Esperando corrida…</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="k">Consultas</div>
+          <div class="verdict" id="queryCount" style="color:var(--ink-1);">–</div>
+        </div>
+      </div>
+
+      <div class="chart-title">Respuestas de esta corrida</div>
+      <div class="bars">
+        <div class="bar-col">
+          <div class="bar-track"><div class="bar-fill" id="bar0" style="height:0%"></div></div>
+          <label>f(0)</label>
+        </div>
+        <div class="bar-col">
+          <div class="bar-track"><div class="bar-fill" id="bar1" style="height:0%"></div></div>
+          <label>f(1)</label>
+        </div>
+      </div>
+
+      <div class="history">
+        <div class="history-head">
+          <div class="chart-title">Historial de corridas</div>
+          <div class="n"><span id="histCount">0</span> registradas</div>
+        </div>
+        <div class="ticks" id="ticks">
+          <div class="empty">Todavía no hay corridas — pulsa el interruptor.</div>
+        </div>
+        <div class="legend">
+          <span><i class="dot constante"></i>Constante</span>
+          <span><i class="dot balanceada"></i>Balanceada</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="k">Corridas</div>
+      <div class="v" id="statTotal">0</div>
+    </div>
+    <div class="stat">
+      <div class="k">Exactitud</div>
+      <div class="v" id="statAcc">—<small>%</small></div>
+    </div>
+    <div class="stat">
+      <div class="k">Promedio de consultas</div>
+      <div class="v" id="statAvg">—</div>
+    </div>
+  </div>
+
+  <footer>
+    Cada corrida elige al azar una de las 4 cajas posibles (2 constantes, 2 balanceadas)
+    y resuelve con el método clásico: siempre 2 consultas, comparando f(0) contra f(1).
+    Estos números son la línea base clásica frente a la que se compara el algoritmo
+    cuántico de Deutsch, que resuelve el mismo problema con 1 sola consulta.
+  </footer>
+
+</div>
+
+<script>
+  const FUNCIONES = [
+    { nombre: "f1 · constante 0", tipo: "Constante", f: x => 0 },
+    { nombre: "f2 · constante 1", tipo: "Constante", f: x => 1 },
+    { nombre: "f3 · balanceada (identidad)", tipo: "Balanceada", f: x => x },
+    { nombre: "f4 · balanceada (negada)", tipo: "Balanceada", f: x => 1 - x },
+  ];
+
+  const state = { historial: [] };
+
+  const el = id => document.getElementById(id);
+  const light0 = el('light0'), light1 = el('light1');
+
+  function resolverClasico(caja){
+    const f0 = caja.f(0);
+    const f1 = caja.f(1);
+    const consultas = 2;
+    const tipoObtenido = (f0 === f1) ? "Constante" : "Balanceada";
+    return { ...caja, f0, f1, consultas, tipoObtenido, acierto: tipoObtenido === caja.tipo };
+  }
+
+  function encenderLuces(){
+    light0.classList.add('on');
+    setTimeout(() => light1.classList.add('on'), 260);
+    setTimeout(() => { light0.classList.remove('on'); light1.classList.remove('on'); }, 900);
+  }
+
+  function pintarCorridaActual(r){
+    el('valF0').textContent = r.f0;
+    el('valF1').textContent = r.f1;
+    el('queryCount').textContent = r.consultas;
+
+    const v = el('verdict');
+    v.textContent = r.tipoObtenido;
+    v.className = 'verdict ' + (r.tipoObtenido === 'Constante' ? 'constante' : 'balanceada');
+
+    el('bar0').style.height = (r.f0 === 1 ? 100 : 6) + '%';
+    el('bar1').style.height = (r.f1 === 1 ? 100 : 6) + '%';
+    el('bar0').classList.toggle('one', r.f0 === 1);
+    el('bar1').classList.toggle('one', r.f1 === 1);
+  }
+
+  function pintarHistorial(){
+    const cont = el('ticks');
+    cont.innerHTML = '';
+    const ultimos = state.historial.slice(-40);
+
+    if (ultimos.length === 0){
+      cont.innerHTML = '<div class="empty">Todavía no hay corridas — pulsa el interruptor.</div>';
+    } else {
+      ultimos.forEach(r => {
+        const t = document.createElement('div');
+        t.className = 'tick ' + (r.tipoObtenido === 'Constante' ? 'constante' : 'balanceada');
+        t.style.height = '100%';
+        t.title = `${r.nombre} → ${r.tipoObtenido} (${r.consultas} consultas)`;
+        cont.appendChild(t);
+      });
+    }
+    el('histCount').textContent = state.historial.length;
+  }
+
+  function pintarStats(){
+    const total = state.historial.length;
+    el('statTotal').textContent = total;
+
+    if (total === 0){
+      el('statAcc').innerHTML = '—<small>%</small>';
+      el('statAvg').textContent = '—';
+      return;
+    }
+    const aciertos = state.historial.filter(r => r.acierto).length;
+    const exactitud = (aciertos / total * 100).toFixed(1);
+    const promedio = (state.historial.reduce((s, r) => s + r.consultas, 0) / total).toFixed(2);
+
+    el('statAcc').innerHTML = exactitud + '<small>%</small>';
+    el('statAvg').textContent = promedio;
+  }
+
+  function nuevaCorrida(){
+    const caja = FUNCIONES[Math.floor(Math.random() * FUNCIONES.length)];
+    const r = resolverClasico(caja);
+    state.historial.push(r);
+
+    encenderLuces();
+    pintarCorridaActual(r);
+    pintarHistorial();
+    pintarStats();
+  }
+
+  el('runBtn').addEventListener('click', nuevaCorrida);
+</script>
+</body>
+</html>
